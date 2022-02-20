@@ -3,7 +3,7 @@ export const calculateTimeRemaining = props => {
     return props.timerDuration;
   }
 
-  const elapsed = props.currentTime - props.timerStartedAt;
+  const elapsed = props.actionTime - props.timerStartedAt;
   return props.timerDuration > 0
     ? Math.max(0, props.timerDuration - elapsed)
     : 0;

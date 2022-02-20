@@ -5,6 +5,9 @@ import { section } from '/components/section.js';
 import { header } from '/sections/header.js';
 import { timeRemaining } from '/sections/timeRemaining.js';
 import { toasts } from '/sections/toasts.js';
+import { toggleSound } from '/sections/toggleSound.js';
+import { mobOrder } from '/settings/mobOrder.js';
+import { setLength } from '/settings/setLength.js';
 import * as subscriptions from '/subscriptions.js';
 import { app, h, text } from '/vendor/hyperapp.js';
 import * as Emitter from '/lib/emitter.js';
@@ -42,7 +45,7 @@ app({
       'div',
       {
         class: {
-          flex: true,
+          'flex': true,
           'items-start': true,
           'justify-center': true,
           'min-h-screen': true,
@@ -59,16 +62,16 @@ app({
               'sm:w-8/12': true,
               'md:w-10/12': true,
               'lg:w-6/12': true,
-              shadow: false,
+              'shadow': false,
               'sm:shadow-lg': true,
               'pt-2': false,
               'pt-0': true,
               'pb-12': true,
               'pb-1': false,
               'sm:mt-2': true,
-              rounded: false,
+              'rounded': false,
               'sm:rounded': true,
-              relative: true,
+              'relative': true,
             },
           },
           [

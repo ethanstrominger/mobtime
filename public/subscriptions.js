@@ -12,12 +12,12 @@ const TimerFX = (dispatch, { timerStartedAt, timerDuration, actions }) => {
   const tick = () => {
     if (cancel) return;
 
-    const currentTime = Date.now();
+    const actionTime = Date.now();
     dispatch(actions.SetCurrentTime, {
-      currentTime,
+      actionTime,
       documentElement: document,
     });
-    const elapsed = currentTime - timerStartedAt;
+    const elapsed = actionTime - timerStartedAt;
 
     if (elapsed >= timerDuration) {
       cleanup();

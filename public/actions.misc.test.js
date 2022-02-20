@@ -57,22 +57,19 @@ test('can disallow notifications', t => {
 });
 
 test('can set current time', t => {
-  const currentTime = 47323743746;
+  const actionTime = 47323743746;
   const documentElement = {};
-  const initialState = {
-    currentTime: 0,
-    externals: { documentElement },
-  };
-  const [state, effect] = actions.SetCurrentTime(initialState, {
-    currentTime,
-  });
+  const [state, effect] = actions.SetCurrentTime(
+    {},
+    {
+      actionTime,
+      documentElement,
+    },
+  );
 
   const remainingTime = calculateTimeRemaining(state);
 
-  t.deepEqual(state, {
-    ...initialState,
-    currentTime,
-  });
+  t.deepEqual(state, { actionTime });
   t.deepEqual(
     effect,
     effects.UpdateTitleWithTime({
