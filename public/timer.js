@@ -75,8 +75,16 @@ app({
             },
           },
           [
-            header(),
-            timeRemaining(state),
+            h(header),
+
+            h(timeRemaining, state),
+
+            // Todo: Refactor to turn into a component.
+            h(toggleSound, state),
+            h(setLength, {
+              pendingSettings: state.pendingSettings,
+              settings: state.settings,
+            }),
             tabs(state),
             showTab(state),
             h(
