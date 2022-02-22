@@ -13,7 +13,7 @@ const TimerFX = (dispatch, { timerStartedAt, timerDuration, actions }) => {
     if (cancel) return;
 
     const actionTime = Date.now();
-    dispatch(actions.SetCurrentTime, {
+    dispatch(actions.SetActionTime, {
       actionTime,
       documentElement: document,
     });

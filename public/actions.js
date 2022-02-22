@@ -49,13 +49,13 @@ export const Init = (_, { timerId, externals, dark }) => [
     drag: { ...emptyDrag },
     prompt: { ...emptyPrompt },
     timerId,
-    currentTime: null,
+    actionTime: null,
     name: '',
     goal: '',
     addMultiple: false,
     allowNotification:
       externals.Notification && externals.Notification.permission === 'granted',
-    allowSound: false,
+    allowSound: true,
     sound: 'horn',
     pendingSettings: {},
     websocketConnect: true,
@@ -101,7 +101,7 @@ export const SetAddMultiple = (state, addMultiple) => ({
   addMultiple: Boolean(addMultiple),
 });
 
-export const SetCurrentTime = (state, { actionTime, documentElement }) => {
+export const SetActionTime = (state, { actionTime }) => {
   const nextState = {
     ...state,
     actionTime,

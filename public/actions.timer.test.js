@@ -58,7 +58,6 @@ test('can pause the timer', t => {
   const initialState = {
     externals,
     timerStartedAt,
-    currentTime,
     websocket: originalWebsocket,
     timerStartedAt: originalTimerStartedAt,
     actionTime: originalCurrentTime,
