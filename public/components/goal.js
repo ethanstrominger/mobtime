@@ -1,20 +1,26 @@
-import { h } from '/vendor/hyperapp.js';
+import { h, text } from '/vendor/hyperapp.js';
 
 import * as actions from '/actions.js';
+
+const textWithBreaks = goalText =>
+  goalText
+    .split('\n')
+    .reduce((result, t) => [...result, text(t), h('br', {})], [])
+    .slice(0, -1);
 
 export const goal = props =>
   h(
     'div',
     {
       class: {
-        "flex": true,
+        'flex': true,
         'flex-row': true,
         'items-center': true,
         'justify-between': true,
         'mb-2': true,
         'w-full': true,
         'break-words': true,
-        "truncate": props.truncate,
+        'truncate': props.truncate,
       },
     },
     [
@@ -22,12 +28,11 @@ export const goal = props =>
         id: `goal-${props.id}`,
         type: 'checkbox',
         checked: props.completed,
-        onchange: [
+        onchange: (_, e) => [
           actions.CompleteGoal,
-          e => ({ id: props.id, completed: e.target.checked }),
+          { id: props.id, completed: e.target.checked },
         ],
         class: {
-          'mr-3': true,
           'sr-only': true,
         },
       }),
@@ -37,7 +42,7 @@ export const goal = props =>
           disabled: props.id === null,
           onclick:
             props.id !== null
-              ? [
+              ? () => [
                   actions.CompleteGoal,
                   { id: props.id, completed: !props.completed },
                 ]
@@ -55,7 +60,7 @@ export const goal = props =>
               },
             },
             [
-              h('i', { class: 'far fa-circle fa-stack-2x' }),
+              h('i', { class: 'far fa-circle fa-stack-1x' }),
               props.completed &&
                 h('i', { class: 'fas fa-check fa-stack-1x text-green-500' }),
             ],
@@ -68,14 +73,15 @@ export const goal = props =>
           for: `goal-${props.id}`,
           class: {
             'pr-1': true,
-            'text-4xl': true,
             'flex-grow': true,
             'leading-tight': true,
             'text-gray-500': props.id === null,
-            "truncate": props.truncate,
+            'break-words': true,
+            'truncate': props.truncate,
+            'block': true,
           },
         },
-        props.text,
+        textWithBreaks(props.text),
       ),
     ],
   );

@@ -1,153 +1,105 @@
 import test from 'ava';
-import sinon from 'sinon';
-import { app, effects } from 'ferp';
-import {
-  SendOwnership,
-  CloseWebsocket,
-  RelayMessage,
-  Websocket,
-} from './websocket.js';
+import { app, effects, tester } from 'ferp';
+import { RelayMessage, ShareMessage, Websocket } from './websocket.js';
+import { fakeSocket } from './support/fakeSocket.js';
+import { Queue } from './queue.js';
 
-const runEffect = effect =>
-  app({
-    init: [null, effect],
-  });
-
-const runSubscription = (init, observe, subscription) => {
-  const QuitApp = state => [null, effects.none()];
-
-  const dispatch = app({
-    init,
-    subscribe: state => [state && subscription],
-    observe,
-  });
-
-  return () => dispatch(QuitApp);
-};
-
-const fakeWebsocket = () => {
-  const events = {};
-  const getEvents = name => events[name] || [];
-
-  const on = (name, cb) => {
-    events[name] = getEvents(name).concat(cb);
-  };
-  const trigger = (name, event) => getEvents(name).forEach(cb => cb(event));
-
-  return {
-    send: sinon.fake(),
-    close: sinon.fake(),
-    on,
-    trigger,
-  };
-};
-
-test('SendOwnership calls websocket send with expected data', t => {
-  const isOwner = true;
-  const connection = {
-    websocket: fakeWebsocket(),
-  };
-
-  runEffect(SendOwnership(connection, isOwner));
-
-  t.truthy(
-    connection.websocket.send.calledOnceWithExactly(
-      JSON.stringify({
-        type: 'timer:ownership',
-        isOwner,
-      }),
-    ),
-    'calls websocket send',
-  );
-});
-
-test('CloseWebsocket will close the websocket', t => {
-  const websocket = fakeWebsocket();
-
-  runEffect(CloseWebsocket(websocket));
-
-  t.truthy(websocket.close.calledOnceWithExactly(), 'calls websocket.close');
-});
-
-test('RelayMessage sends the message to the connection', t => {
-  const connection = {
-    websocket: fakeWebsocket(),
-  };
+test('RelayMessage sends the message to the connection', async t => {
+  const connection = { websocket: fakeSocket() };
   const message = 'hello';
 
-  runEffect(RelayMessage(connection, message));
+  await tester().fromEffect(RelayMessage(connection, message));
 
   t.truthy(
     connection.websocket.send.calledOnceWithExactly(message),
-    'calls websocket.close',
+    'calls websocket.send',
   );
 });
 
-test('WebsocketSub works', t => {
+test('ShareMessage messages many people about a timer', async t => {
+  const connections = [
+    { websocket: fakeSocket() },
+    { websocket: fakeSocket() },
+    { websocket: fakeSocket() },
+  ];
   const timerId = 'foo';
-  const connection = { timerId, websocket: fakeWebsocket() };
+  const queue = Queue.forTesting({
+    [`timer_${timerId}`]: JSON.stringify({ timerStartedAt: 11111 }),
+  });
+
+  const { ok } = await tester()
+    .willDefer('ShareMessage')
+    .willBatch('ShareMessageBatch')
+    .willThunk('RelayMessage')
+    .willThunk('RelayMessage')
+    .willThunk('RelayMessage')
+    .fromEffect(
+      ShareMessage(
+        timerId,
+        connections,
+        JSON.stringify({ type: 'foo' }),
+        queue,
+      ),
+    );
+
+  t.truthy(ok());
+});
+
+test('ShareMessage prevents timer complete cascade', async t => {
+  const connections = [
+    { websocket: fakeSocket() },
+    { websocket: fakeSocket() },
+    { websocket: fakeSocket() },
+  ];
+  const timerId = 'foo';
+  const queue = Queue.forTesting({
+    [`timer_${timerId}`]: JSON.stringify({
+      timerStartedAt: null,
+      timerDuration: 0,
+    }),
+  });
+
+  const { ok } = await tester()
+    .includeEffectNone()
+    .willDefer('ShareMessage')
+    .willNone('ShareMessageNone')
+    .fromEffect(
+      ShareMessage(
+        timerId,
+        connections,
+        JSON.stringify({ type: 'timer:complete' }),
+        queue,
+      ),
+    );
+
+  t.truthy(ok());
+});
+
+test('WebsocketSub works', async t => {
+  const timerId = 'foo';
+  const connection = { timerId, websocket: fakeSocket() };
   const state = { lastParams: null };
   const actions = {
     RemoveConnection: (websocket, tId) => () => [
       { lastParams: [websocket, tId] },
       effects.none(),
     ],
-    MessageTimerOwner: (websocket, tId, data) => () => [
-      { lastParams: [websocket, tId, data] },
-      effects.none(),
-    ],
-    MessageTimer: (websocket, tId, data) => () => [
-      { lastParams: [websocket, tId, data] },
+    UpdateTimer: (tId, data) => () => [
+      { lastParams: [tId, data] },
       effects.none(),
     ],
   };
 
-  const expectedStatesAndActionNames = [
-    { state, actionName: 'ferpAppInitialize' },
-    {
-      state: { lastParams: [connection.websocket, timerId, '{}'] },
-      actionName: 'MessageTimer',
-    },
-    {
-      state: {
-        lastParams: [connection.websocket, timerId, '{"type":"client:new"}'],
-      },
-      actionName: 'MessageTimerOwner',
-    },
-    {
-      state: { lastParams: [connection.websocket, timerId] },
-      actionName: 'RemoveConnection',
-    },
-
-    { state: null, actionName: undefined },
-  ];
-
-  const kill = runSubscription(
-    [state, effects.none()],
-    (tuple, actionName) => {
-      if (expectedStatesAndActionNames.length === 0) {
-        t.fail(
-          `Not all messages accounted for:\n${JSON.stringify({
-            tuple,
-            actionName,
-          })}`,
-        );
-      }
-      const {
-        state: expectedState,
-        actionName: expectedActionName,
-      } = expectedStatesAndActionNames.shift();
-      t.is(actionName, expectedActionName);
-      t.deepEqual(tuple[0], expectedState);
-    },
-    Websocket(actions, connection, timerId),
-  );
+  const { cancel, ok } = tester(state)
+    .willAct('RemoveConnection')
+    .willAct('UpdateTimer')
+    .fromSubscription(Websocket(actions, connection, timerId));
 
   connection.websocket.trigger('message', '{}');
-  connection.websocket.trigger('message', '{"type":"client:new"}');
   connection.websocket.trigger('close');
   connection.websocket.trigger('close');
 
-  kill();
-  t.pass();
+  cancel();
+
+  t.truthy(ok());
 });

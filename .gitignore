@@ -5,3 +5,6 @@ storage
 .nyc_output
 public/styles/*
 .idea/
+.yarn
+dump.rdb
+docker/redis-volume/*

@@ -3,8 +3,6 @@ import test from 'ava';
 import * as actions from './actions';
 import * as effects from './effects';
 
-import { calculateTimeRemaining } from './lib/calculateTimeRemaining';
-
 test('can update settings from websocket message', t => {
   const settings = { foo: 'bar' };
   const state = actions.UpdateByWebsocketData(
@@ -115,10 +113,31 @@ test('can complete timer from websocket message', t => {
     effect,
     effects.andThen({
       action: actions.EndTurn,
-      props: {
-        documentElement,
-        Notification,
-      },
+      props: {},
+    }),
+  );
+});
+
+test('can complete a paused timer from websocket message', t => {
+  const initialState = {
+    timerStartedAt: null,
+    timerDuration: 5000,
+  };
+
+  const [state, effect] = actions.UpdateByWebsocketData(initialState, {
+    payload: {
+      type: 'timer:complete',
+    },
+    documentElement: {},
+    Notification: {},
+  });
+
+  t.is(state, initialState);
+  t.deepEqual(
+    effect,
+    effects.andThen({
+      action: actions.EndTurn,
+      props: {},
     }),
   );
 });
@@ -178,84 +197,6 @@ test('can update mob from websocket message', t => {
 
   t.deepEqual(state, {
     mob,
-  });
-});
-
-test('can share timer state when recieving client:new from websocket message', t => {
-  const websocket = {};
-  const initialState = {
-    timerStartedAt: 100,
-    timerDuration: 10,
-    mob: [],
-    goals: [],
-    settings: {},
-    remainingTime: 5,
-    websocket,
-  };
-  const [state, effect] = actions.UpdateByWebsocketData(initialState, {
-    payload: {
-      type: 'client:new',
-    },
-    documentElement: {},
-    Notification: {},
-  });
-
-  t.is(state, initialState);
-  t.deepEqual(effect, [
-    effects.StartTimer({
-      websocket,
-      timerDuration: calculateTimeRemaining(state),
-    }),
-    effects.UpdateMob({ websocket, mob: state.mob }),
-    effects.UpdateGoals({ websocket, goals: state.goals }),
-    effects.UpdateSettings({ websocket, settings: state.settings }),
-  ]);
-});
-
-test('does not start timer if timer is not running when recieving client:new from websocket message', t => {
-  const websocket = {};
-  const initialState = {
-    timerStartedAt: null,
-    timerDuration: 10,
-    mob: [],
-    goals: [],
-    settings: {},
-    remainingTime: 5,
-    websocket,
-  };
-  const [state, effect] = actions.UpdateByWebsocketData(initialState, {
-    payload: {
-      type: 'client:new',
-    },
-    documentElement: {},
-    Notification: {},
-  });
-
-  t.is(state, initialState);
-  t.deepEqual(effect, [
-    false,
-    effects.UpdateMob({ websocket, mob: state.mob }),
-    effects.UpdateGoals({ websocket, goals: state.goals }),
-    effects.UpdateSettings({ websocket, settings: state.settings }),
-  ]);
-});
-
-test('can update ownership from websocket message', t => {
-  const isOwner = false;
-  const state = actions.UpdateByWebsocketData(
-    {},
-    {
-      payload: {
-        type: 'timer:ownership',
-        isOwner,
-      },
-      documentElement: {},
-      Notification: {},
-    },
-  );
-
-  t.deepEqual(state, {
-    isOwner,
   });
 });
 

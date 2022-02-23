@@ -3,8 +3,7 @@ import { h } from '/vendor/hyperapp.js';
 import { listButton } from './listButton.js';
 
 export const deleteButton = props =>
-  h(
-    listButton,
+  listButton(
     {
       ...props,
       class: {
@@ -16,7 +15,7 @@ export const deleteButton = props =>
     [
       h('i', {
         class: {
-          "fas": true,
+          fas: true,
           'fa-times': true,
         },
       }),

@@ -1,13 +1,12 @@
-import { h } from '/vendor/hyperapp.js';
+import { h, text } from '/vendor/hyperapp.js';
 
 import { section } from '/components/section.js';
 
 export const header = () =>
-  h(
-    section,
+  section(
     {
       class: {
-        "flex": true,
+        'flex': true,
         'flex-row': true,
         'items-center': true,
         'justify-start': true,
@@ -21,7 +20,7 @@ export const header = () =>
         'div',
         {
           class: {
-            "uppercase": true,
+            'uppercase': true,
             'tracker-widest': true,
             'text-2xl': true,
           },

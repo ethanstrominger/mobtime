@@ -1,4 +1,4 @@
-import { h } from '/vendor/hyperapp.js';
+import { h, text } from '/vendor/hyperapp.js';
 
 import { section } from '/components/section.js';
 import { button } from '/components/button.js';
@@ -13,24 +13,24 @@ export const timeRemaining = props => {
   const isPaused = props.timerStartedAt === null;
   const remainingTime = calculateTimeRemaining(props);
 
-  return h(section, null, [
+  return section({}, [
     h(
       'h2',
       {
         class: {
-          'text-lg': true,
+          'text-sm': true,
           'font-bold': true,
-          "uppercase": true,
+          uppercase: true,
         },
       },
-      'Remaining Time',
+      text('Remaining Time'),
     ),
 
     h(
       'div',
       {
         class: {
-          "flex": true,
+          flex: true,
           'flex-row': true,
           'items-center': true,
           'justify-between': true,
@@ -41,7 +41,7 @@ export const timeRemaining = props => {
           'h3',
           {
             class: {
-              "flex": true,
+              flex: true,
               'flex-row': true,
               'items-start': true,
               'justify-start': true,
@@ -53,19 +53,19 @@ export const timeRemaining = props => {
               {
                 class: {
                   'text-6xl': true,
-                  'font-extrabold': true,
+                  // 'font-extrabold': true,
                   'leading-none': true,
                 },
                 style: {
                   fontFamily: "'Working Sans', sans-serif",
                 },
               },
-              timerRemainingDisplay(remainingTime),
+              text(timerRemainingDisplay(remainingTime)),
             ),
             remainingTime > 0 &&
-              h(deleteButton, {
+              deleteButton({
                 size: '24px',
-                onclick: [
+                onclick: () => [
                   actions.Completed,
                   {
                     isEndOfTurn: false,
@@ -77,38 +77,35 @@ export const timeRemaining = props => {
           ],
         ),
 
-        !props.timerDuration && [
-          h(
-            button,
+        !props.timerDuration &&
+          button(
             {
               class: {
                 'bg-green-600': true,
                 'text-white': true,
               },
-              onclick: [
+              onclick: () => [
                 actions.StartTimer,
-                () => ({
+                {
                   timerStartedAt: Date.now(),
                   timerDuration: props.settings.duration,
-                }),
+                },
               ],
             },
             [
               h('i', {
                 class: {
-                  "fas": true,
+                  fas: true,
                   'fa-play': true,
                   'mr-4': true,
                 },
               }),
-              'Start Turn',
+              text('Start Turn'),
             ],
           ),
-        ],
 
-        !!props.timerDuration && [
-          h(
-            button,
+        !!props.timerDuration &&
+          button(
             {
               class: {
                 'bg-white': true,
@@ -122,16 +119,15 @@ export const timeRemaining = props => {
             [
               h('i', {
                 class: {
-                  "fas": true,
+                  fas: true,
                   'fa-pause': !isPaused,
                   'fa-play': isPaused,
                   'mr-4': true,
                 },
               }),
-              isPaused ? 'Resume' : 'Pause',
+              text(isPaused ? 'Resume' : 'Pause'),
             ],
           ),
-        ],
       ],
     ),
   ]);

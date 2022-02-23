@@ -13,7 +13,7 @@ const TimerFX = (dispatch, { timerStartedAt, timerDuration, actions }) => {
     if (cancel) return;
 
     const actionTime = Date.now();
-    dispatch(actions.SetCurrentTime, {
+    dispatch(actions.SetActionTime, {
       actionTime,
       documentElement: document,
     });
@@ -40,58 +40,42 @@ const TimerFX = (dispatch, { timerStartedAt, timerDuration, actions }) => {
 };
 export const Timer = props => [TimerFX, props];
 
-const WebsocketFX = (dispatch, { timerId, actions }) => {
-  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const websocketAddress = `${protocol}://${window.location.hostname}:${window.location.port}/${timerId}`;
+const WebsocketFX = (dispatch, { timerId, externals, actions }) => {
+  const protocol = externals.location.protocol === 'https:' ? 'wss' : 'ws';
+  const websocketAddress = `${protocol}://${externals.location.hostname}:${externals.location.port}/${timerId}`;
 
-  let socket = null;
-  let cancel = false;
+  const socket = new WebSocket(websocketAddress);
+  let hasError = false;
 
-  const connect = async () => {
-    if (cancel) return;
+  socket.addEventListener('message', event => {
+    const payload = JSON.parse(event.data);
 
-    dispatch(actions.SetWebsocket, { websocket: null });
-    socket = new WebSocket(websocketAddress);
-
-    socket.addEventListener('open', () => {
-      dispatch(actions.SetWebsocket, { websocket: socket });
-      dispatch(actions.BroadcastJoin);
+    dispatch(actions.UpdateByWebsocketData, {
+      payload,
+      documentElement: document,
+      Notification: window.Notification,
     });
+  });
 
-    socket.addEventListener('message', event => {
-      const payload = JSON.parse(event.data);
+  socket.addEventListener('close', event => {
+    if (hasError) return;
+    console.log('Socket close', event);
+    dispatch(actions.WebsocketDisconnected, 'Oops, the websocket disconnected');
+  });
 
-      dispatch(actions.UpdateByWebsocketData, {
-        payload,
-        documentElement: document,
-        Notification: window.Notification,
-      });
-    });
+  socket.addEventListener('error', event => {
+    hasError = true;
+    console.warn('Socket error', event);
+    dispatch(actions.WebsocketDisconnected, 'Websocket connection error');
+  });
 
-    socket.addEventListener('close', () => {
-      if (cancel) return;
-
-      setTimeout(connect, 1000);
-    });
-
-    socket.addEventListener('error', event => {
-      if (cancel) return;
-
-      console.warn('Socket error', event);
-    });
-  };
-
-  requestAnimationFrame(() => {
-    connect();
+  const cancel = externals.socketEmitter.listen(payload => {
+    socket.send(payload);
   });
 
   return () => {
-    cancel = true;
-
-    dispatch(actions.SetWebsocket, { websocket: null });
-
+    cancel();
     socket.close();
-    socket = null;
   };
 };
 export const Websocket = props => [WebsocketFX, props];

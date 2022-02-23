@@ -1,11 +1,6 @@
 import * as effects from './effects.js';
 import { calculateTimeRemaining } from './lib/calculateTimeRemaining.js';
 
-let initialNotificationPermission = '';
-if (typeof window !== 'undefined' && 'Notification' in window) {
-  initialNotificationPermission = Notification.permission;
-}
-
 export const Noop = state => state;
 
 const emptyDrag = {
@@ -39,38 +34,74 @@ const collectionMove = (collection, { from, to }) => {
   return newCollection;
 };
 
-export const Init = (_, timerId) => ({
-  isOwner: false,
-  timerStartedAt: null,
-  timerDuration: 0,
-  mob: [],
-  goals: [],
-  settings: {
-    mobOrder: 'Navigator,Driver',
-    duration: 5 * 60 * 1000,
+export const Init = (_, { timerId, externals, dark }) => [
+  {
+    timerStartedAt: null,
+    timerDuration: 0,
+    mob: [],
+    goals: [],
+    settings: {
+      mobOrder: 'Navigator,Driver',
+      duration: 5 * 60 * 1000,
+    },
+    expandedReorderable: null,
+    timerTab: 'overview',
+    drag: { ...emptyDrag },
+    prompt: { ...emptyPrompt },
+    timerId,
+    actionTime: null,
+    name: '',
+    goal: '',
+    addMultiple: false,
+    allowNotification:
+      externals.Notification && externals.Notification.permission === 'granted',
+    allowSound: true,
+    sound: 'horn',
+    pendingSettings: {},
+    websocketConnect: true,
+    externals,
+    toasts: [],
+    dark,
   },
-  expandedReorderable: null,
-  timerTab: 'mob',
-  drag: { ...emptyDrag },
-  prompt: { ...emptyPrompt },
-  timerId,
-  actionTime: null,
-  name: '',
-  goal: '',
-  addMultiple: false,
-  allowNotification: initialNotificationPermission === 'granted',
-  allowSound: true,
-  notificationPermissions: initialNotificationPermission,
-  pendingSettings: {},
-  websocket: null,
-});
+  effects.checkSettings({
+    storage: externals.storage,
+    onLocalSoundEnabled: SoundToast,
+    onDarkEnabled: SetDark,
+  }),
+  dark &&
+    effects.andThen({
+      action: SetDark,
+      props: { dark },
+    }),
+  effects.removeQueryParameters(externals),
+];
+
+export const SetDark = (state, { dark }) => [
+  { ...state, dark },
+  effects.toggleDarkMode({
+    documentElement: state.externals.documentElement,
+    dark,
+  }),
+  effects.saveSettings({
+    storage: state.externals.storage,
+    data: { dark },
+  }),
+];
+
+export const TestSound = state => [
+  state,
+  effects.PlaySound({
+    sound: true,
+    documentElement: state.externals.documentElement,
+  }),
+];
 
 export const SetAddMultiple = (state, addMultiple) => ({
   ...state,
   addMultiple: Boolean(addMultiple),
 });
 
-export const SetCurrentTime = (state, { actionTime, documentElement }) => {
+export const SetActionTime = (state, { actionTime }) => {
   const nextState = {
     ...state,
     actionTime,
@@ -81,15 +112,10 @@ export const SetCurrentTime = (state, { actionTime, documentElement }) => {
     nextState,
     effects.UpdateTitleWithTime({
       remainingTime,
-      documentElement,
+      documentElement: state.externals.documentElement,
     }),
   ];
 };
-
-export const SetWebsocket = (state, { websocket }) => ({
-  ...state,
-  websocket,
-});
 
 export const ExpandReorderable = (state, { expandedReorderable }) => ({
   ...state,
@@ -198,32 +224,27 @@ export const DragCancel = state => ({
   drag: { ...emptyDrag },
 });
 
-export const EndTurn = (state, { documentElement, Notification }) => [
+export const EndTurn = state => [
   {
     ...state,
     timerStartedAt: null,
     timerDuration: 0,
   },
-  [
-    effects.UpdateTitleWithTime({
-      remainingTime: 0,
-      documentElement,
-    }),
-    effects.Notify({
-      notification: state.allowNotification,
-      sound: state.allowSound,
-      title: 'Mobtime',
-      text: 'The timer is up!',
-      Notification,
-      documentElement,
-    }),
-  ],
+  effects.UpdateTitleWithTime({
+    remainingTime: 0,
+    documentElement: state.externals.documentElement,
+  }),
+  effects.Notify({
+    notification: state.allowNotification,
+    sound: state.allowSound,
+    title: 'Mobtime',
+    text: 'The timer is up!',
+    Notification: state.externals.Notification,
+    documentElement: state.externals.documentElement,
+  }),
 ];
 
-export const Completed = (
-  state,
-  { isEndOfTurn, documentElement, Notification },
-) => {
+export const Completed = (state, { isEndOfTurn }) => {
   const nextState = {
     ...state,
     timerStartedAt: null,
@@ -235,10 +256,7 @@ export const Completed = (
     extraEffects.push(
       effects.andThen({
         action: EndTurn,
-        props: {
-          documentElement,
-          Notification,
-        },
+        props: {},
       }),
     );
   }
@@ -254,12 +272,10 @@ export const Completed = (
 
   return [
     nextState,
-    [
-      effects.CompleteTimer({
-        websocket: state.websocket,
-      }),
-      ...extraEffects,
-    ],
+    effects.CompleteTimer({
+      socketEmitter: state.externals.socketEmitter,
+    }),
+    ...extraEffects,
   ];
 };
 
@@ -275,7 +291,7 @@ export const RenameUser = (state, { id, value }) => {
       mob,
     },
     effects.UpdateMob({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       mob,
     }),
   ];
@@ -290,7 +306,7 @@ export const RenameUserPrompt = (state, { id }) => {
     effects.andThen({
       action: PromptOpen,
       props: {
-        text: 'Rename Mob Member',
+        text: `Rename ${user.name} to...`,
         defaultValue: user.name,
         OnValue: RenameUser,
         context: {
@@ -321,7 +337,7 @@ export const ShuffleMob = state => {
       mob,
     },
     effects.UpdateMob({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       mob,
     }),
   ];
@@ -338,7 +354,7 @@ export const CycleMob = state => {
 
   const effectsToRun = [
     effects.UpdateMob({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       mob,
     }),
   ];
@@ -357,7 +373,7 @@ export const CycleMob = state => {
       ...state,
       mob,
     },
-    effectsToRun,
+    ...effectsToRun,
   ];
 };
 
@@ -376,7 +392,7 @@ export const AddNameToMob = state => {
       name: '',
     },
     effects.UpdateMob({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       mob,
     }),
   ];
@@ -391,7 +407,7 @@ export const RemoveFromMob = (state, id) => {
       mob,
     },
     effects.UpdateMob({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       mob,
     }),
   ];
@@ -406,7 +422,7 @@ export const MoveMob = (state, { from, to }) => {
       mob,
     },
     effects.UpdateMob({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       mob,
     }),
   ];
@@ -428,7 +444,7 @@ export const AddGoal = state => {
       goal: '',
     },
     effects.UpdateGoals({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       goals,
     }),
   ];
@@ -455,7 +471,7 @@ export const AddGoals = (state, goals) => {
       goal: '',
     },
     effects.UpdateGoals({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       goals: allGoals,
     }),
   ];
@@ -473,7 +489,7 @@ export const CompleteGoal = (state, { id, completed }) => {
       goals,
     },
     effects.UpdateGoals({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       goals,
     }),
   ];
@@ -486,7 +502,7 @@ export const RemoveGoal = (state, id) => {
       goals,
     },
     effects.UpdateGoals({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       goals,
     }),
   ];
@@ -502,7 +518,7 @@ export const RemoveCompletedGoals = state => {
     },
     goalsAreRemoved
       ? effects.UpdateGoals({
-          websocket: state.websocket,
+          socketEmitter: state.externals.socketEmitter,
           goals: incompleteGoals,
         })
       : undefined,
@@ -518,7 +534,7 @@ export const MoveGoal = (state, { from, to }) => {
       goals,
     },
     effects.UpdateGoals({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       goals,
     }),
   ];
@@ -535,7 +551,7 @@ export const RenameGoal = (state, { id, value }) => {
       goals,
     },
     effects.UpdateGoals({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       goals,
     }),
   ];
@@ -549,7 +565,9 @@ export const RenameGoalPrompt = (state, { id }) => {
     effects.andThen({
       action: PromptOpen,
       props: {
-        text: 'Rename Goal',
+        text: `Rename ${
+          goal.text.length > 32 ? goal.text.slice(0, 29) + '...' : goal.text
+        } to...`,
         defaultValue: goal.text,
         OnValue: RenameGoal,
         context: {
@@ -579,7 +597,7 @@ export const PauseTimer = (state, actionTime = Date.now()) => {
       actionTime,
     },
     effects.PauseTimer({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       timerDuration,
     }),
   ];
@@ -592,7 +610,7 @@ export const ResumeTimer = (state, timerStartedAt = Date.now()) => [
     actionTime: timerStartedAt,
   },
   effects.StartTimer({
-    websocket: state.websocket,
+    socketEmitter: state.externals.socketEmitter,
     timerDuration: state.timerDuration,
   }),
 ];
@@ -605,15 +623,12 @@ export const StartTimer = (state, { timerStartedAt, timerDuration }) => [
     timerDuration,
   },
   effects.StartTimer({
-    websocket: state.websocket,
+    socketEmitter: state.externals.socketEmitter,
     timerDuration,
   }),
 ];
 
-export const SetAllowNotification = (
-  state,
-  { allowNotification, Notification, documentElement },
-) => [
+export const SetAllowNotification = (state, { allowNotification }) => [
   {
     ...state,
     allowNotification,
@@ -623,39 +638,29 @@ export const SetAllowNotification = (
       title: 'Mobtime Config',
       text: 'You have allowed notifications',
       sound: false,
-      Notification,
-      documentElement,
+      Notification: state.externals.Notification,
+      documentElement: state.externals.documentElement,
     }),
 ];
 
-export const SetNotificationPermissions = (
-  state,
-  { notificationPermissions, Notification, documentElement },
-) => [
+export const UpdateNotificationPermissions = state => [
   {
     ...state,
-    notificationPermissions,
   },
-  notificationPermissions === 'granted' &&
+  state.externals.Notification &&
+    state.externals.Notification.permission === 'granted' &&
     effects.andThen({
       action: SetAllowNotification,
-      props: {
-        allowNotification: true,
-        Notification,
-        documentElement,
-      },
+      props: { allowNotification: true },
     }),
 ];
 
-export const RequestNotificationPermission = (
-  state,
-  { Notification, documentElement },
-) => [
+export const RequestNotificationPermission = state => [
   state,
   effects.NotificationPermission({
-    SetNotificationPermissions,
-    Notification,
-    documentElement,
+    UpdateNotificationPermissions,
+    Notification: state.externals.Notification,
+    documentElement: state.externals.documentElement,
   }),
 ];
 
@@ -664,6 +669,130 @@ export const SetAllowSound = (state, allowSound) => [
     ...state,
     allowSound,
   },
+  effects.saveSettings({
+    storage: state.externals.storage,
+    data: {
+      allowSound,
+      sound: state.sound,
+    },
+  }),
+];
+
+export const SetSound = (state, noise) => {
+  const sound = noise.split('/')[0];
+  return [
+    {
+      ...state,
+      sound,
+    },
+    effects.saveSettings({
+      storage: state.externals.storage,
+      data: {
+        allowSound: state.allowSound,
+        sound,
+      },
+    }),
+  ];
+};
+
+export const RemoveToast = (state, id) => [
+  {
+    ...state,
+    toasts: state.toasts.filter(t => t.id !== id),
+  },
+];
+
+export const AddToast = (state, toast) => {
+  const id =
+    toast.id ||
+    Math.random()
+      .toString(36)
+      .slice(2);
+  return [
+    {
+      ...state,
+      toasts: [...state.toasts.filter(t => t.id !== id), { ...toast, id }],
+    },
+  ];
+};
+
+export const SoundToast = (state, { sound }) => [
+  {
+    ...state,
+    sound,
+  },
+  effects.andThen({
+    action: AddToast,
+    props: {
+      id: 'sound-effects',
+      title: 'Sound Effects',
+      body:
+        'You previously enabled sound effects, do you want to enable this time, too?',
+      buttons: {
+        left: [
+          {
+            text: 'Okay!',
+            class: ['bg-green-600', 'text-white', 'mr-1'],
+            actions: [{ action: SetAllowSound, props: true }],
+          },
+          {
+            text: 'Not now',
+            class: [],
+            actions: [],
+          },
+        ],
+        right: [
+          {
+            text: 'Never',
+            class: ['bg-red-600', 'text-white'],
+            actions: [
+              {
+                action: s => [
+                  s,
+                  effects.saveSettings({
+                    storage: s.externals.storage,
+                    data: {
+                      allowSound: false,
+                    },
+                  }),
+                ],
+                props: {},
+              },
+            ],
+          },
+        ],
+      },
+    },
+  }),
+];
+
+export const WebsocketReconnect = state => [
+  { ...state, websocketConnect: true },
+];
+
+export const WebsocketDisconnected = (state, error) => [
+  {
+    ...state,
+    websocketConnect: false,
+  },
+  effects.andThen({
+    action: AddToast,
+    props: {
+      id: 'websocket-disconnected',
+      title: 'Lost Connection',
+      body: error,
+      buttons: {
+        left: [],
+        right: [
+          {
+            text: 'Reconnect!',
+            class: ['bg-green-600', 'text-white', 'mr-1'],
+            actions: [{ action: WebsocketReconnect, props: {} }],
+          },
+        ],
+      },
+    },
+  }),
 ];
 
 export const ShowNotification = (state, message) => [
@@ -700,25 +829,14 @@ export const UpdateSettings = state => {
       pendingSettings: {},
     },
     effects.UpdateSettings({
-      websocket: state.websocket,
+      socketEmitter: state.externals.socketEmitter,
       settings,
     }),
   ];
 };
 
-export const BroadcastJoin = state => [
-  state,
-  effects.BroadcastJoin({
-    websocket: state.websocket,
-  }),
-];
-
-export const UpdateByWebsocketData = (
-  state,
-  { payload, documentElement, Notification },
-) => {
+export const UpdateByWebsocketData = (state, { payload }) => {
   const { type, ...data } = payload;
-
   switch (type) {
     case 'settings:update':
       return {
@@ -748,7 +866,7 @@ export const UpdateByWebsocketData = (
       };
 
     case 'timer:complete':
-      if (state.timerStartedAt === null) {
+      if (state.timerStartedAt === null && state.timerDuration === 0) {
         return state;
       }
 
@@ -756,10 +874,7 @@ export const UpdateByWebsocketData = (
         state,
         effects.andThen({
           action: EndTurn,
-          props: {
-            Notification,
-            documentElement,
-          },
+          props: {},
         }),
       ];
 
@@ -775,35 +890,8 @@ export const UpdateByWebsocketData = (
         mob: data.mob,
       };
 
-    case 'client:new':
-      return [
-        state,
-        [
-          state.timerStartedAt > 0 &&
-            effects.StartTimer({
-              websocket: state.websocket,
-              timerDuration: calculateTimeRemaining(state),
-            }),
-          effects.UpdateMob({ websocket: state.websocket, mob: state.mob }),
-          effects.UpdateGoals({
-            websocket: state.websocket,
-            goals: state.goals,
-          }),
-          effects.UpdateSettings({
-            websocket: state.websocket,
-            settings: state.settings,
-          }),
-        ],
-      ];
-
-    case 'timer:ownership':
-      return {
-        ...state,
-        isOwner: data.isOwner,
-      };
-
     default:
-      console.warn('Unknown websocket data', payload); // eslint-disable-line no-console
+      // console.warn('Unknown websocket data', payload); // eslint-disable-line no-console
       return state;
   }
 };

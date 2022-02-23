@@ -5,12 +5,6 @@ import * as effects from './effects';
 
 import { calculateTimeRemaining } from './lib/calculateTimeRemaining.js';
 
-test('can set websocket', t => {
-  const websocket = { send: () => {} };
-  const state = actions.SetWebsocket({}, { websocket });
-  t.deepEqual(state, { websocket });
-});
-
 test('can set expand reorderable', t => {
   const expandedReorderable = { foo: 'bar' };
   const state = actions.ExpandReorderable({}, { expandedReorderable });
@@ -26,16 +20,17 @@ test('can set timer tab', t => {
 test('can allow notifications', t => {
   const Notification = {};
   const documentElement = {};
-
-  const [state, fx] = actions.SetAllowNotification(
-    {},
-    {
-      allowNotification: true,
+  const initialState = {
+    externals: {
       Notification,
       documentElement,
     },
-  );
-  t.deepEqual(state, { allowNotification: true });
+  };
+
+  const [state, fx] = actions.SetAllowNotification(initialState, {
+    allowNotification: true,
+  });
+  t.deepEqual(state, { ...initialState, allowNotification: true });
   t.deepEqual(
     fx,
     effects.Notify({
@@ -61,20 +56,23 @@ test('can disallow notifications', t => {
   t.deepEqual(fx, false);
 });
 
-test('can set current time', t => {
+test('can set action time', t => {
   const actionTime = 47323743746;
   const documentElement = {};
-  const [state, effect] = actions.SetCurrentTime(
-    {},
-    {
-      actionTime,
-      documentElement,
-    },
-  );
+  const initialState = {
+    actionTime: 0,
+    externals: { documentElement },
+  };
+  const [state, effect] = actions.SetActionTime(initialState, {
+    actionTime,
+  });
 
   const remainingTime = calculateTimeRemaining(state);
 
-  t.deepEqual(state, { actionTime });
+  t.deepEqual(state, {
+    ...initialState,
+    actionTime,
+  });
   t.deepEqual(
     effect,
     effects.UpdateTitleWithTime({
@@ -93,12 +91,13 @@ test('can end turn', t => {
     timerDuration: 10,
     allowNotification: true,
     allowSound: true,
+    externals: {
+      documentElement,
+      Notification,
+    },
   };
 
-  const [state, effect] = actions.EndTurn(initialState, {
-    documentElement,
-    Notification,
-  });
+  const [state, ...effect] = actions.EndTurn(initialState, {});
 
   t.deepEqual(state, {
     ...initialState,

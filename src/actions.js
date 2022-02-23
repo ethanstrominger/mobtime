@@ -1,35 +1,40 @@
 import { effects } from 'ferp';
-import { SendOwnership, CloseWebsocket, RelayMessage } from './websocket';
+import { WebSocket } from 'ws';
+import { RelayMessage, ShareMessage } from './websocket';
 import * as Connection from './connection';
 import { id, GenerateIdEffect } from './id';
 
-const { none, act, batch, thunk } = effects;
+const { none, act, batch, defer } = effects;
 
 const defaultStatistics = {
-  mobbers: 0,
-  goals: 0,
   connections: 0,
+  mobbers: 0,
+};
+
+const defaultTimer = {
+  mob: [],
+  goals: [],
+  settings: {
+    mobOrder: 'Navigator,Driver',
+    duration: 5 * 60 * 1000,
+  },
 };
 
 const extractStatistics = message => {
   const { type, ...data } = JSON.parse(message);
 
   switch (type) {
-    case 'goals:update':
-      return { goals: data.goals.length };
-
     case 'mob:update':
       return { mobbers: data.mob.length };
-
     default:
       return {};
   }
 };
 
-export const Init = (nextId = id()) => [
+export const Init = (queue, nextId = id()) => [
   {
-    connections: [],
-    statistics: {},
+    connections: {},
+    queue,
     nextId,
   },
   none(),
@@ -37,134 +42,156 @@ export const Init = (nextId = id()) => [
 
 export const SetNextId = nextId => state => [{ ...state, nextId }, none()];
 
-export const SetTimerOwner = timerId => state => {
-  const hasConnectionsOnTimerId = state.connections.some(
-    c => c.timerId === timerId,
-  );
-  if (!hasConnectionsOnTimerId) {
-    return [state, effects.none()];
-  }
+export const UpdateStatisticsFromMessage = (timerId, message) => state => [
+  state,
+  defer(
+    state.queue
+      .mergeStatistics(timerId, stats => ({
+        ...defaultStatistics,
+        ...stats,
+        ...extractStatistics(message),
+      }))
+      .then(none),
+  ),
+];
 
-  const [futureTimerOwner, ...futureTimerOthers] = state.connections.filter(
-    c => c.timerId === timerId,
-  );
-  const timerOwner = { ...futureTimerOwner, isOwner: true };
-  const timerOthers = futureTimerOthers.map(fto => ({
-    ...fto,
-    isOwner: false,
-  }));
-  const otherConnections = state.connections.filter(c => c.timerId !== timerId);
+export const UpdateConnectionStatistics = timerId => state => [
+  state,
+  defer(resolve => {
+    const connections = (state.connections[timerId] || []).length;
 
-  const connections = [timerOwner, ...timerOthers, ...otherConnections];
+    if (connections === 0) {
+      return state.queue
+        .getStatistics()
+        .then(({ [timerId]: oldTimer, ...otherTimers }) => otherTimers)
+        .then(stats => state.queue.setStatistics(stats))
+        .then(none)
+        .then(resolve);
+    }
 
+    return state.queue
+      .mergeStatistics(timerId, stats => ({
+        ...defaultStatistics,
+        ...stats,
+        connections,
+      }))
+      .then(none)
+      .then(resolve);
+  }),
+];
+
+export const AddConnection = (websocket, timerId) => state => {
+  const connection = Connection.make(state.nextId, websocket, timerId);
   return [
     {
       ...state,
-      connections,
+      connections: {
+        ...state.connections,
+        [timerId]: (state.connections[timerId] || []).concat(connection),
+      },
     },
     batch([
-      SendOwnership(timerOwner, true),
-      ...timerOthers.map(tc => SendOwnership(tc, false)),
+      GenerateIdEffect(SetNextId),
+      act(UpdateConnectionStatistics(timerId), 'UpdateConnectionStatistics'),
+      act(ShareTimerWith(connection, timerId), 'ShareTimerWith'),
     ]),
   ];
 };
 
-export const UpdateStatisticsFromMessage = (timerId, message) => state => {
-  const statistics = {
-    ...state.statistics,
-    [timerId]: {
-      ...defaultStatistics,
-      ...state.statistics[timerId],
-      ...extractStatistics(message),
-    },
-  };
+export const RemoveConnection = (connectionId, timerId) => state => {
+  const timerConnections = (state.connections[timerId] || [])
+    .filter(c => c.id !== connectionId)
+    .filter(c => c.websocket.readyState !== WebSocket.CLOSED);
+  const { [timerId]: current, ...others } = state.connections;
 
   return [
     {
       ...state,
-      statistics,
+      connections:
+        timerConnections.length > 0
+          ? { ...others, [timerId]: current }
+          : others,
     },
-    none(),
+    act(UpdateConnectionStatistics(timerId), 'UpdateConnectionStatistics'),
   ];
 };
 
-export const UpdateStatisticsFromConnections = timerId => state => {
-  const connections = state.connections.filter(
-    connection => connection.timerId === timerId,
-  );
+export const UpdateTimer = (timerId, message) => state => {
+  const { type, ...data } = JSON.parse(message);
 
-  const { [timerId]: old, ...prevStatistics } = state.statistics;
-
-  const augment =
-    connections.length > 0
-      ? {
-          [timerId]: {
-            ...defaultStatistics,
-            ...old,
-            connections: connections.length,
-          },
-        }
-      : {};
-
-  const statistics = {
-    ...prevStatistics,
-    ...augment,
+  const meta = {
+    ...(type === 'timer:start' ? { timerStartedAt: Date.now() } : {}),
+    ...(type === 'timer:complete'
+      ? { timerStartedAt: null, timerDuration: 0 }
+      : {}),
+    ...(type === 'timer:pause' ? { timerStartedAt: null } : {}),
   };
-
-  return [
-    {
-      ...state,
-      statistics,
-    },
-    none(),
-  ];
-};
-
-export const AddConnection = (websocket, timerId) => state => [
-  {
-    ...state,
-    connections: state.connections.concat(
-      Connection.make(state.nextId, websocket, timerId),
-    ),
-  },
-  batch([
-    GenerateIdEffect(SetNextId),
-    act(SetTimerOwner, timerId),
-    act(UpdateStatisticsFromConnections, timerId),
-  ]),
-];
-
-export const RemoveConnection = (websocket, timerId) => state => [
-  {
-    ...state,
-    connections: state.connections.filter(c => c.websocket !== websocket),
-  },
-  batch([
-    CloseWebsocket(websocket),
-    act(SetTimerOwner, timerId),
-    act(UpdateStatisticsFromConnections, timerId),
-  ]),
-];
-
-export const MessageTimer = (websocket, timerId, message) => state => {
-  const connections = state.connections.filter(
-    connection =>
-      connection.timerId === timerId && connection.websocket !== websocket,
-  );
 
   return [
     state,
-    effects.batch([
-      ...connections.map(c => RelayMessage(c, message)),
-      act(UpdateStatisticsFromMessage, timerId, message),
+    batch([
+      defer(
+        state.queue
+          .mergeTimer(timerId, timer => ({
+            ...timer,
+            ...data,
+            ...meta,
+          }))
+          .then(none),
+      ),
+      defer(state.queue.publishToTimer(timerId, message).then(none)),
+      act(UpdateStatisticsFromMessage(timerId, message)),
     ]),
   ];
 };
 
-export const MessageTimerOwner = (websocket, timerId, message) => state => {
-  const owner = state.connections.find(
-    c => c.timerId === timerId && c.isOwner && c.websocket !== websocket,
-  );
-
-  return [state, owner ? RelayMessage(owner, message) : none()];
+export const MessageTimer = (timerId, message) => state => {
+  return [
+    state,
+    ShareMessage(
+      timerId,
+      state.connections[timerId] || [],
+      message,
+      state.queue,
+    ),
+  ];
 };
+
+export const ShareTimerWith = (connection, timerId) => state => [
+  state,
+  effects.defer(
+    state.queue.getTimer(timerId).then(timer => {
+      if (!timer) return;
+
+      const sync = (key, payload) =>
+        RelayMessage(
+          connection,
+          JSON.stringify(
+            payload || {
+              type: `${key}:update`,
+              [key]: timer[key] || defaultTimer[key],
+            },
+          ),
+        );
+
+      const timerIsRunning =
+        timer.timerStartedAt &&
+        timer.timerDuration &&
+        timer.timerDuration - (Date.now() - timer.timerStartedAt) > 0;
+
+      return batch(
+        [
+          sync('settings'),
+          sync('mob'),
+          sync('goals'),
+          timerIsRunning &&
+            sync('timer', {
+              type: 'timer:update',
+              timerStartedAt: timer.timerStartedAt,
+              timerDuration: timer.timerDuration,
+            }),
+        ].filter(Boolean),
+      );
+    }),
+  ),
+];

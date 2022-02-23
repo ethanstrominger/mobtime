@@ -1,9 +1,6 @@
 module.exports = {
-  future: {
-    // removeDeprecatedGapUtilities: true,
-    // purgeLayersByDefault: true,
-  },
-  purge: [
+  darkMode: 'class',
+  content: [
     './public/**/*.html',
     './public/**/*.js',
     './src/**/*.html',

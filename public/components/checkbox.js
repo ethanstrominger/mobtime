@@ -5,7 +5,7 @@ export const checkbox = (props, children) =>
     'div',
     {
       class: {
-        "flex": true,
+        flex: true,
         'flex-row': true,
         'items-center': true,
         'justify-center': true,
@@ -31,7 +31,7 @@ export const checkbox = (props, children) =>
             class: {
               'flex-grow': true,
               'leading-tight': true,
-              "flex": true,
+              flex: true,
               'flex-row': true,
               'items-center': true,
             },
@@ -45,12 +45,12 @@ export const checkbox = (props, children) =>
                 },
               },
               [
-                h('i', { class: 'far fa-circle fa-stack-2x' }),
+                h('i', { class: 'far fa-circle fa-stack-1x' }),
                 props.checked &&
                   h('i', { class: 'fas fa-check fa-stack-1x text-green-500' }),
               ],
             ),
-            ...children,
+            ...(Array.isArray(children) ? children : [children]),
           ],
         ),
     ],

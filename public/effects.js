@@ -4,8 +4,8 @@ import formatTime from './formatTime.js';
 
 const fx = effect => props => [effect, props];
 
-const sendMessage = (websocket, type, json = {}) => {
-  websocket.send(
+const sendMessage = (socketEmitter, type, json = {}) => {
+  socketEmitter.emit(
     JSON.stringify({
       type,
       ...json,
@@ -15,69 +15,52 @@ const sendMessage = (websocket, type, json = {}) => {
 
 export const UpdateSettings = fx(function UpdateSettingsFX(
   _dispatch,
-  { websocket, settings },
+  { socketEmitter, settings },
 ) {
-  return sendMessage(websocket, 'settings:update', { settings });
-});
-
-export const BroadcastJoin = fx(function UpdateSettingsFX(
-  _dispatch,
-  { websocket },
-) {
-  return sendMessage(websocket, 'client:new');
+  return sendMessage(socketEmitter, 'settings:update', { settings });
 });
 
 export const StartTimer = fx(function StartTimerFX(
   _dispatch,
-  { websocket, timerDuration },
+  { socketEmitter, timerDuration },
 ) {
-  return sendMessage(websocket, 'timer:start', { timerDuration });
+  return sendMessage(socketEmitter, 'timer:start', { timerDuration });
 });
 
 export const PauseTimer = fx(function StartTimerFX(
   _dispatch,
-  { websocket, timerDuration },
+  { socketEmitter, timerDuration },
 ) {
-  return sendMessage(websocket, 'timer:pause', { timerDuration });
+  return sendMessage(socketEmitter, 'timer:pause', { timerDuration });
 });
 
 export const CompleteTimer = fx(function CompleteTimerFX(
   _dispatch,
-  { websocket },
+  { socketEmitter },
 ) {
-  return sendMessage(websocket, 'timer:complete');
+  return sendMessage(socketEmitter, 'timer:complete');
 });
 
 export const UpdateGoals = fx(function UpdateGoalsFX(
   _dispatch,
-  { websocket, goals },
+  { socketEmitter, goals },
 ) {
-  websocket.send(
-    JSON.stringify({
-      type: 'goals:update',
-      goals,
-    }),
-  );
+  sendMessage(socketEmitter, 'goals:update', { goals });
 });
 
 export const UpdateMob = fx(function UpdateMobFX(
   _dispatch,
-  { websocket, mob },
+  { socketEmitter, mob },
 ) {
-  websocket.send(
-    JSON.stringify({
-      type: 'mob:update',
-      mob,
-    }),
-  );
+  sendMessage(socketEmitter, 'mob:update', { mob });
 });
 
 export const NotificationPermission = fx(function NotificationPermissionFX(
   dispatch,
-  { SetNotificationPermissions, Notification, documentElement },
+  { UpdateNotificationPermissions, Notification, documentElement },
 ) {
   const dispatchSetNotificationPermissions = notificationPermissions => {
-    dispatch(SetNotificationPermissions, {
+    dispatch(UpdateNotificationPermissions, {
       notificationPermissions,
       Notification,
       documentElement,
@@ -92,10 +75,17 @@ export const NotificationPermission = fx(function NotificationPermissionFX(
   Notification.requestPermission()
     .then(dispatchSetNotificationPermissions)
     .catch(() => {
-      // eslint-disable-next-line no-console
       dispatchSetNotificationPermissions('denied');
     });
 });
+
+function PlaySoundFX(_dispatch, { sound, documentElement }) {
+  if (sound && documentElement) {
+    const timerComplete = documentElement.querySelector('#timer-complete');
+    timerComplete.play();
+  }
+}
+export const PlaySound = fx(PlaySoundFX);
 
 export const Notify = fx(function NotifyFX(
   _dispatch,
@@ -115,10 +105,7 @@ export const Notify = fx(function NotifyFX(
       vibrate: [100, 100, 100],
     });
   }
-  if (sound && documentElement) {
-    const timerComplete = documentElement.querySelector('#timer-complete');
-    timerComplete.play();
-  }
+  PlaySoundFX(_dispatch, { sound, documentElement });
 });
 
 export const UpdateTitleWithTime = fx(function UpdateTitleWithTimeFX(
@@ -132,4 +119,89 @@ export const UpdateTitleWithTime = fx(function UpdateTitleWithTimeFX(
 
 export const andThen = fx(function andThenFX(dispatch, { action, props }) {
   dispatch(action, props);
+});
+
+export const checkSettings = fx(function CheckSettingsFX(
+  dispatch,
+  { storage, onLocalSoundEnabled, onDarkEnabled },
+) {
+  let localSettings = storage.getItem('settings');
+  if (!localSettings) return;
+
+  localSettings = JSON.parse(localSettings);
+  console.log('settings', localSettings);
+  if (localSettings.allowSound && onLocalSoundEnabled) {
+    dispatch(onLocalSoundEnabled, {
+      sound: localSettings.sound || '/audio/horn.wav',
+    });
+  }
+  if (localSettings.dark && onDarkEnabled) {
+    dispatch(onDarkEnabled, {
+      dark: localSettings.dark,
+    });
+  }
+});
+
+export const saveSettings = fx(function SaveSettingsFX(
+  _dispatch,
+  { storage, data },
+) {
+  let localSettings = storage.getItem('settings');
+  if (!localSettings) {
+    localSettings = '{}';
+  }
+
+  localSettings = {
+    ...JSON.parse(localSettings),
+    ...data,
+  };
+
+  storage.setItem('settings', JSON.stringify(localSettings));
+});
+
+export const saveSound = fx(function SaveSoundFX(
+  _dispatch,
+  { storage, allowSound, sound },
+) {
+  let localSettings = storage.getItem('settings');
+  if (!localSettings) {
+    localSettings = '{}';
+  }
+
+  localSettings = {
+    ...JSON.parse(localSettings),
+    allowSound,
+    sound,
+  };
+
+  storage.setItem('settings', JSON.stringify(localSettings));
+});
+
+export const toggleDarkMode = fx(function ToggleDarkMode(
+  _dispatch,
+  { documentElement, dark },
+) {
+  console.log('toggleDarkMode', documentElement, dark);
+  if (typeof dark !== 'boolean') {
+    console.log('dark not set, skipping', dark);
+    return;
+  }
+  const classList = documentElement.querySelector('html').classList;
+  if (classList.contains('dark') && !dark) {
+    classList.remove('dark');
+  }
+  if (!classList.contains('dark') && dark) {
+    classList.add('dark');
+  }
+});
+
+export const removeQueryParameters = fx(function RemoveQueryParametersFX(
+  _dispatch,
+  { location, history, documentElement },
+) {
+  history.replaceState(
+    {},
+    documentElement.title,
+    location.toString().split('?')[0],
+  );
 });

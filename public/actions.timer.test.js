@@ -4,43 +4,39 @@ import * as actions from './actions';
 import * as effects from './effects';
 
 test('can complete a timer', t => {
-  const websocket = {};
+  const socketEmitter = {};
   const documentElement = {};
   const Notification = {};
+  const externals = { socketEmitter, documentElement, Notification };
   const initialState = {
-    isOwner: true,
     allowNotification: true,
     allowSound: false,
     timerStartedAt: Date.now(),
     timerDuration: 1,
-    websocket,
+    externals,
   };
 
-  const [state, effect] = actions.Completed(initialState, {
+  const [state, ...effect] = actions.Completed(initialState, {
     isEndOfTurn: true,
     documentElement,
     Notification,
   });
 
   t.deepEqual(state, {
-    isOwner: true,
     allowNotification: true,
     allowSound: false,
     timerStartedAt: null,
     timerDuration: 0,
-    websocket,
+    externals,
   });
 
   t.deepEqual(effect, [
     effects.CompleteTimer({
-      websocket,
+      socketEmitter,
     }),
     effects.andThen({
       action: actions.EndTurn,
-      props: {
-        documentElement,
-        Notification,
-      },
+      props: {},
     }),
     effects.andThen({
       action: actions.CycleMob,
@@ -50,89 +46,91 @@ test('can complete a timer', t => {
 });
 
 test('can pause the timer', t => {
-  const originalWebsocket = {};
-
+  const socketEmitter = {};
+  const externals = { socketEmitter };
   const expectedTimerDuration = 1000;
-  const now = Date.now();
-  const originalTimerStartedAt = now - expectedTimerDuration;
-  const originalCurrentTime = now - 5;
+  const pausedTime = Date.now();
+  const timerStartedAt = pausedTime - expectedTimerDuration;
+  const actionTime = pausedTime - 5;
 
   const initialState = {
-    websocket: originalWebsocket,
-    timerStartedAt: originalTimerStartedAt,
-    actionTime: originalCurrentTime,
+    externals,
+    timerStartedAt,
+    actionTime,
     timerDuration: 2000,
   };
 
-  const [state, effect] = actions.PauseTimer(initialState, now);
+  const [state, effect] = actions.PauseTimer(initialState, pausedTime);
 
   t.deepEqual(state, {
-    websocket: originalWebsocket,
+    externals,
     timerStartedAt: null,
-    actionTime: now,
+    actionTime: pausedTime,
     timerDuration: expectedTimerDuration,
   });
 
   t.deepEqual(
     effect,
     effects.PauseTimer({
-      websocket: originalWebsocket,
+      socketEmitter,
       timerDuration: expectedTimerDuration,
     }),
   );
 });
 
 test('can resume the timer', t => {
-  const now = Date.now();
-  const beforeNow = now - 100000;
-  const websocket = {};
+  const resumedTime = Date.now();
+  const beforeNow = resumedTime - 100000;
+  const socketEmitter = {};
+  const externals = { socketEmitter };
 
   const initialState = {
-    websocket,
+    externals,
     timerStartedAt: beforeNow,
-    actionTime: now,
+    actionTime: resumedTime,
     timerDuration: 1000000,
   };
 
-  const [state, effect] = actions.ResumeTimer(initialState, now);
+  const [state, effect] = actions.ResumeTimer(initialState, resumedTime);
 
   t.deepEqual(state, {
-    websocket,
-    timerStartedAt: now,
-    actionTime: now,
+    externals,
+    timerStartedAt: resumedTime,
+    actionTime: resumedTime,
     timerDuration: 1000000,
   });
 
   t.deepEqual(
     effect,
     effects.StartTimer({
-      websocket,
+      socketEmitter,
       timerDuration: 1000000,
     }),
   );
 });
 
 test('can start the timer', t => {
-  const now = Date.now();
-  const websocket = {};
+  const startedTime = Date.now();
+  const socketEmitter = {};
+  const externals = { socketEmitter };
   const timerDuration = 10000;
 
   const initialState = {
-    websocket,
+    externals,
     settings: {
       duration: timerDuration,
     },
   };
 
   const [state, effect] = actions.StartTimer(initialState, {
-    timerStartedAt: now,
+    timerStartedAt: startedTime,
     timerDuration: initialState.settings.duration,
   });
 
   t.deepEqual(state, {
-    websocket,
-    timerStartedAt: now,
-    actionTime: now,
+    externals,
+    timerStartedAt: startedTime,
+    actionTime: startedTime,
     timerDuration,
     settings: {
       duration: timerDuration,
@@ -142,7 +140,7 @@ test('can start the timer', t => {
   t.deepEqual(
     effect,
     effects.StartTimer({
-      websocket,
+      socketEmitter,
       timerDuration,
     }),
   );

@@ -11,41 +11,39 @@ See https://docs.google.com/document/d/1x7Q7gj5T2reQHIb8eQARVer2ygMMT3j9ifAESlMU
 
 This README needs to be updated for mobtimeplus.
 
-A websocket powered, collaborative mobbing timer.
+A websocket powered, collaborative mobbing timer, for desktop and mobile.
 
-On your desktop:
+## Running Locally
 
-<p align="center">
-  <img src="./docs/screenshot.png" width="30%" height="auto" />
-</p>
+### With Docker/Docker Compose
 
-And your phone:
+This is probably the preferred way, so yo udon't need to global install redis or even a specific node version.
 
-<p align="center">
-  <img src="./docs/screenshot-mobile.png" width="30%" height="auto" />
-</p>
+ - `docker-compose build`
+ - `npm run start:dev`
 
-## Get up and running
+### On your system
 
-```bash
-yarn && yarn tailwind:dev && yarn start
-```
+I'd only use this if you are using `nvm` or similar for node version management, and are okay with running a local redis server.
 
-### Environment Variables
+ - Install NodeJS LTS (>= v16.x officially, 12.x may still work though)
+ - Install and run redis server
+     - OSX+homebrew: `brew install redis`
+     - Ubuntu: `sudo apt install redis-server`
+     - Or google for your operating system's install instructions
+ - `npm install`
+ - `npm run tailwind`
+ - `npm run start:dev`
 
-| Name            | Description                      | Default Value      |
-| --------------- | -------------------------------- | ------------------ |
-| PORT            | Port number to run the server on | 4321               |
+### Configuration with .env
 
-### Sharing from your local computer
+See [.env.example](./.env.example) for information on environment variables.
 
-#### Using ngrok
+## Tips for running in production
 
-```bash
-yarn global add ngrok
-
-ngrok http 4321 # replace 4321 with the port you do
-```
+ - Ensure `NODE_ENV` is set to production
+ - Use `npm start` rather than `npm run start:dev`
+ - Surprise find: If you are using phusion passenger to run your node application, you cannot use clustering
 
 ## Contributing
 

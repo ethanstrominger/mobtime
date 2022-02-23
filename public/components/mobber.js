@@ -1,20 +1,24 @@
-import { h } from '/vendor/hyperapp.js';
+import { h, text } from '/vendor/hyperapp.js';
 
 import { section } from '/components/section.js';
 
 export const mobber = props =>
   h(
-    section,
+    'div',
     {
       class: {
-        "flex": true,
+        flex: true,
         'flex-row': true,
         'items-center': true,
         'justify-between': true,
-        'mb-3': true,
+        'mb-1': true,
         'h-full': true,
         'w-full': true,
-        "truncate": props.truncate,
+        truncate: props.truncate,
+        'bg-indigo-50': props.position !== 'mob',
+        'dark:bg-indigo-800': props.position !== 'mob',
+        'py-2': true,
+        'pl-1': true,
       },
     },
     [
@@ -30,27 +34,26 @@ export const mobber = props =>
             'div',
             {
               class: {
-                "uppercase": true,
-                'text-lg': true,
-                'font-extrabold': props.position !== 'mob',
+                uppercase: true,
                 'leading-none': true,
                 'mb-1': true,
+                'break-all': true,
               },
             },
-            props.position,
+            text(props.position),
           ),
           h(
             'div',
             {
               class: {
                 'text-gray-500': !props.name,
-                'text-4xl': true,
                 'font-bold': props.position !== 'mob',
                 'leading-none': true,
-                "truncate": props.truncate,
+                'break-all': true,
+                truncate: props.truncate,
               },
             },
-            props.name || 'Empty',
+            text(props.name || 'Empty'),
           ),
         ],
       ),

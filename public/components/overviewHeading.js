@@ -10,7 +10,7 @@ export const overviewHeading = (props, children) =>
         'px-1': true,
         'mx-5': true,
         'pt-3': true,
-        "flex": true,
+        flex: true,
         'flex-row': true,
         'items-end': true,
         'justify-between': true,
@@ -22,7 +22,7 @@ export const overviewHeading = (props, children) =>
         'h2',
         {
           class: {
-            'text-lg': true,
+            // 'text-lg': true,
             'font-bold': true,
             'py-1': true,
           },

@@ -1,18 +1,18 @@
-import { h } from '/vendor/hyperapp.js';
+import { h, text } from '/vendor/hyperapp.js';
 
 import * as actions from '/actions.js';
 
 import { modal } from '/components/modal.js';
-import { input } from '/components/input.js';
+import { textarea } from '/components/input.js';
 import { button } from '/components/button.js';
 
 export const appPrompt = props =>
-  h(
-    modal,
+  modal(
     {
       ...props,
       cardClass: {
         'pb-4': true,
+        'w-1/2': true,
       },
     },
     [
@@ -30,6 +30,7 @@ export const appPrompt = props =>
               },
             ];
           },
+          class: 'w-full',
         },
         [
           h(
@@ -37,24 +38,21 @@ export const appPrompt = props =>
             {
               for: 'mobtime-prompt',
               class: {
-                "block": true,
-                'text-extrabold': true,
-                'text-2xl': true,
+                'block': true,
                 'mb-2': true,
               },
             },
-            props.text,
+            text(props.text),
           ),
-          h(input, {
+          textarea({
             id: 'mobtime-prompt',
             name: 'value',
             value: props.value,
-            oninput: [actions.PromptValueChange, e => e.target.value],
+            oninput: (_, e) => [actions.PromptValueChange, e.target.value],
             autocomplete: 'off',
             class: {
-              "block": true,
-              'bg-indigo-500': true,
-              'text-3xl': true,
+              'block': true,
+              'w-full': true,
               'mb-4': true,
             },
           }),
@@ -62,28 +60,26 @@ export const appPrompt = props =>
             'div',
             {
               class: {
-                "flex": true,
+                'flex': true,
                 'items-center': true,
                 'justify-end': true,
               },
             },
             [
-              h(
-                button,
+              button(
                 {
                   onclick: actions.PromptCancel,
                 },
-                'Cancel',
+                text('Cancel'),
               ),
-              h(
-                button,
+              button(
                 {
                   type: 'submit',
                   class: {
                     'bg-green-500': true,
                   },
                 },
-                'Ok',
+                text('Ok'),
               ),
             ],
           ),

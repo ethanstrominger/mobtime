@@ -18,28 +18,30 @@ export const mobParticipants = props => {
 
   const items = Array.from({ length }, (_, index) => ({
     ...(props.mob[index] || {}),
+    disabled: index >= props.mob.length,
     position: mobOrder[index] || 'mob',
   }));
 
-  return h(section, null, [
+  return section({}, [
     h(
       'div',
-      null,
-      h(reorderable, {
+      {},
+      reorderable({
         dragType: 'mob',
         expandedReorderable: props.expandedReorderable,
         items,
+        disabled: props.mob.length === 0,
         renderItem: item =>
-          h(mobber, {
+          mobber({
             ...item,
             truncate: getReorderableId(item) === props.expandedReorderable,
           }),
         drag: props.drag,
         disabled: props.overview,
-        onDelete: props.overview ? undefined : actions.RemoveFromMob,
-        onMove: props.overview ? undefined : actions.MoveMob,
         getReorderableId,
+        onMove: props.overview ? undefined : actions.MoveMob,
         onEdit: props.overview ? undefined : actions.RenameUserPrompt,
+        onDelete: props.overview ? undefined : actions.RemoveFromMob,
       }),
     ),
   ]);

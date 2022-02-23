@@ -1,12 +1,11 @@
-const path = require('path');
-
-module.exports = {
+export default {
+  root: true,
   env: {
     browser: true,
     es6: true,
     node: true,
   },
-  extends: ['eslint:recommended', 'airbnb-base', 'prettier'],
+  extends: ['eslint:recommended', 'prettier'],
   plugins: ['import'],
   globals: {
     Atomics: 'readonly',

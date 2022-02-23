@@ -7,26 +7,32 @@ import http from 'http';
 import helmet from 'helmet';
 import { URL } from 'url';
 import path from 'path';
-import fs from 'fs';
+import fs from 'fs/promises';
 import apiStatistics from './api/statistics';
+import apiConsole from './api/console';
 
-const HttpSub = (
-  dispatch,
-  storage,
-  action,
-  host = 'localhost',
-  port = 4321,
-) => {
+const HttpSub = (dispatch, action, host = 'localhost', port = 4321) => {
   const app = express();
   const server = http.createServer(app);
-  const wss = new ws.Server({ server });
+  const wss = new ws.Server({
+    server,
+    clientTracking: false,
+  });
+
+  const log = (...data) => console.log('[Http]', ...data);
 
   app.use(bodyParser.json());
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginOpenerPolicy: 'unsafe-none',
+      crossOriginEmbedderPolicy: false,
+      frameguard: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
-  const router = new express.Router();
-
-  router.use((_request, response, next) => {
+  const tryMiddleware = (_request, response, next) => {
     try {
       return next();
     } catch (err) {
@@ -37,23 +43,21 @@ const HttpSub = (
         .json({ message: err.toString() })
         .end();
     }
-  });
+  };
 
-  router.use(apiStatistics(storage));
-
-  app.use('/api', router);
+  app.use('/api', tryMiddleware, apiStatistics());
+  app.use('/console', apiConsole());
 
   const rootPath = path.resolve(__dirname, '..');
   app.use(express.static(path.resolve(rootPath, 'public')));
 
-  app.get('/:timerId', async (_request, response) => {
+  app.get('/:timerId', async (request, response) => {
     const htmlPayload = path.resolve(rootPath, 'public', 'timer.html');
-    const html = await fs.promises.readFile(htmlPayload, { encoding: 'utf8' });
+    const html = await fs.readFile(htmlPayload, { encoding: 'utf8' });
 
-    return response
-      .status(200)
-      .send(html)
-      .end();
+    log('http.connect', request.params.timerId);
+
+    return response.status(200).send(html);
   });
 
   server.listen(port, host, () => {
@@ -63,6 +67,10 @@ const HttpSub = (
   wss.on('connection', async (client, request) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     const timerId = url.pathname.replace('/', '');
+    log('websocket.connect', timerId);
+    client.on('close', () => {
+      log('websocket.disconnect', timerId);
+    });
 
     await dispatch(action.AddConnection(client, timerId), 'AddConnection');
   });

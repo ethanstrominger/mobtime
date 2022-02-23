@@ -1,26 +1,40 @@
 import express from 'express';
+import { Queue } from '../queue';
 
-export default storage => {
+const CACHE_TTL = 1000 * 60;
+
+export default () => {
   const router = new express.Router();
+  const queue = new Queue();
+  let cache = {
+    value: { connections: 0, mobbers: 0, timerIds: 0 },
+    time: Date.now() - CACHE_TTL - 1,
+  };
 
-  router.get('/statistics', (_request, response) => {
-    const state = storage.read();
-    const timerIds = Object.keys(state.statistics);
-    const timerStatistics = timerIds.reduce(
-      (counts, id) => ({
-        mobbers: counts.mobbers + state.statistics[id].mobbers,
-        connections: counts.connections + state.statistics[id].connections,
-        goals: counts.goals + state.statistics[id].goals,
-      }),
-      { mobbers: 0, connections: 0, goals: 0 },
-    );
+  router.get('/statistics', async (_request, response) => {
+    let timerStatistics = cache.value;
+    if (Date.now() - cache.time > CACHE_TTL) {
+      const stats = await queue.getStatistics();
+      const timerIds = await queue.listTimers();
+      const getStats = (timerId, type) =>
+        (stats[timerId] && stats[timerId][type]) || 0;
+      timerStatistics = timerIds.reduce(
+        (counts, id) => ({
+          connections: counts.connections + getStats(id, 'connections'),
+          mobbers: counts.mobbers + getStats(id, 'mobbers'),
+          timerIds: counts.timerIds + 1,
+        }),
+        { connections: 0, mobbers: 0, timerIds: 0 },
+      );
+      cache = {
+        value: timerStatistics,
+        time: Date.now(),
+      };
+    }
 
     return response
       .status(200)
-      .json({
-        timers: timerIds.length,
-        ...timerStatistics,
-      })
+      .json(timerStatistics)
       .end();
   });
 
