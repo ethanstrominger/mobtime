@@ -33,12 +33,12 @@ export const setLength = props =>
       name: 'setLength',
       maxlength: 4,
       // pattern: '[1-9][0-9]?',
-      value: millisecondsToMinutes(value('duration', props)),
+      value: value('duration', props), // millisecondsToMinutes
       oninput: [
         actions.PendingSettingsSet,
         e => ({
           key: 'duration',
-          value: minutesToMilliseconds(e.target.value),
+          value: e.target.value, // minutesToMilliseconds
         }),
       ],
       onblur: [actions.UpdateSettings],

@@ -13,6 +13,14 @@ export const timeRemaining = props => {
   const isPaused = props.timerStartedAt === null;
   const remainingTime = calculateTimeRemaining(props);
 
+  const isNumber = value => Number(value) == value; // eslint-disable-line eqeqeq
+
+  // const millisecondsToMinutes = value =>
+  //   isNumber(value) ? parseFloat(value / 60000, 10) : value;
+
+  const minutesToMilliseconds = value =>
+    isNumber(value) ? value * 60000 : value;
+
   return h(section, null, [
     h(
       'h2',
@@ -89,7 +97,7 @@ export const timeRemaining = props => {
                 actions.StartTimer,
                 () => ({
                   timerStartedAt: Date.now(),
-                  timerDuration: props.settings.duration,
+                  timerDuration: minutesToMilliseconds(props.settings.duration),
                 }),
               ],
             },
