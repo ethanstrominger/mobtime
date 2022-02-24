@@ -18,7 +18,7 @@ import { qrShare } from '/sections/qrShare.js';
 import { timeRemaining } from '/sections/timeRemaining.js';
 import { toggleSound } from '/sections/toggleSound.js';
 import { mobOrder } from '/settings/mobOrder.js';
-import { setLength } from '/settings/setLength.js';
+import { setDuration } from '/settings/setDuration.js';
 import * as subscriptions from '/subscriptions.js';
 import { app, h } from '/vendor/hyperapp.js';
 import { removeCompletedGoals } from './sections/removeCompletedGoals.js';
@@ -115,7 +115,7 @@ app({
 
             // Todo: Refactor to turn into a component.
             h(toggleSound, state),
-            h(setLength, {
+            h(setDuration, {
               pendingSettings: state.pendingSettings,
               settings: state.settings,
             }),

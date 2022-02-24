@@ -1,15 +1,12 @@
 import { h } from '/vendor/hyperapp.js';
 import { section } from '/components/section.js';
-
 import { input } from '/components/input.js';
-import { base } from '/settings/base.js';
-
 import * as actions from '/actions.js';
 
 const value = (key, { pendingSettings, settings }) =>
   key in pendingSettings ? pendingSettings[key] : settings[key];
 
-export const setLength = props =>
+export const setDuration = props =>
   h(section, null, [
     h(
       'span',
@@ -22,7 +19,7 @@ export const setLength = props =>
       'Turn Duration (minutes):',
     ),
     h(input, {
-      name: 'setLength',
+      name: 'setDuration',
       maxlength: 4,
       value: value('duration', props),
       oninput: [
