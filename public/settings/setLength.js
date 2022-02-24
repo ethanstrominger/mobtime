@@ -24,7 +24,6 @@ export const setLength = props =>
     h(input, {
       name: 'setLength',
       maxlength: 4,
-      // pattern: '[1-9][0-9]?',
       value: value('duration', props),
       oninput: [
         actions.PendingSettingsSet,
