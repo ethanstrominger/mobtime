@@ -6,14 +6,6 @@ import { base } from '/settings/base.js';
 
 import * as actions from '/actions.js';
 
-const isNumber = value => Number(value) == value; // eslint-disable-line eqeqeq
-
-const millisecondsToMinutes = value =>
-  isNumber(value) ? parseFloat(value / 60000, 10) : value;
-
-const minutesToMilliseconds = value =>
-  isNumber(value) ? value * 60000 : value;
-
 const value = (key, { pendingSettings, settings }) =>
   key in pendingSettings ? pendingSettings[key] : settings[key];
 
@@ -33,12 +25,12 @@ export const setLength = props =>
       name: 'setLength',
       maxlength: 4,
       // pattern: '[1-9][0-9]?',
-      value: value('duration', props), // millisecondsToMinutes
+      value: value('duration', props),
       oninput: [
         actions.PendingSettingsSet,
         e => ({
           key: 'duration',
-          value: e.target.value, // minutesToMilliseconds
+          value: e.target.value,
         }),
       ],
       onblur: [actions.UpdateSettings],

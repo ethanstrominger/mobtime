@@ -15,9 +15,6 @@ export const timeRemaining = props => {
 
   const isNumber = value => Number(value) == value; // eslint-disable-line eqeqeq
 
-  // const millisecondsToMinutes = value =>
-  //   isNumber(value) ? parseFloat(value / 60000, 10) : value;
-
   const minutesToMilliseconds = value =>
     isNumber(value) ? value * 60000 : value;
 
