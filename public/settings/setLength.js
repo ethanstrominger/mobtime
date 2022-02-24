@@ -9,7 +9,7 @@ import * as actions from '/actions.js';
 const isNumber = value => Number(value) == value; // eslint-disable-line eqeqeq
 
 const millisecondsToMinutes = value =>
-  isNumber(value) ? parseInt(value / 60000, 10) : value;
+  isNumber(value) ? parseFloat(value / 60000, 10) : value;
 
 const minutesToMilliseconds = value =>
   isNumber(value) ? value * 60000 : value;
@@ -31,8 +31,8 @@ export const setLength = props =>
     ),
     h(input, {
       name: 'setLength',
-      maxlength: 2,
-      pattern: '[1-9][0-9]?',
+      maxlength: 4,
+      // pattern: '[1-9][0-9]?',
       value: millisecondsToMinutes(value('duration', props)),
       oninput: [
         actions.PendingSettingsSet,
